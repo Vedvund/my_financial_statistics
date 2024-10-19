@@ -43,8 +43,42 @@ def process_idfc_wow():
     idfc_data_df.to_csv('processed_data/idfc_wow_transactions.csv', index=False)
 
 
+def parse_axis_bank_transaction_line(row):
+    if pd.notnull(row['DEBIT']):
+        return row['DEBIT'], 'DEBIT'
+    elif pd.notnull(row['CREDIT']):
+        return row['CREDIT'], 'CREDIT'
+    else:
+        raise Exception('unexpected row')
+
+
+def process_axis_bank():
+    axis_bank_path = 'data/axis_bank'
+    combined_df = pd.DataFrame()  # Initialize an empty DataFrame to store combined data
+    date_pattern = re.compile(r'^\d{2}-\d{2}-\d{4}$')  # Regex pattern to match 'dd-mm-yyyy'
+
+    for root, dirs, files in os.walk(axis_bank_path):
+        for filename in files:
+            if filename.endswith('.csv'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                df = pd.read_csv(file_path, skiprows=18, header=0, na_values=['', ' '])
+                df = df.dropna(thresh=df.shape[1] - 4)
+                df = df[df.iloc[:, 0].apply(lambda x: bool(date_pattern.match(str(x))))]
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    combined_df.columns = ["DATE", "CHQNO", "DESCRIPTION", "DEBIT", "CREDIT", "BAL", "SOL"]
+    combined_df[['AMOUNT', 'TRANSACTION_TYPE']] = combined_df.apply(parse_axis_bank_transaction_line, axis=1, result_type='expand')
+    formatted_df = combined_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
+    formatted_df.columns = [col.lower() for col in formatted_df.columns]
+
+    formatted_df.to_csv('processed_data/axis_bank_transactions.csv', index=False)
+    print("Combined DataFrame saved to 'axis_bank_transactions.csv'")
+
+
 def main():
-    process_idfc_wow()
+    # process_idfc_wow()
+    process_axis_bank()
 
 
 if __name__ == '__main__':
