@@ -1,5 +1,7 @@
 import os
 import re
+from datetime import datetime
+
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
 from helpers import extract_text_from_pdfs
@@ -40,6 +42,7 @@ def process_idfc_wow():
                 })
 
     idfc_data_df = pd.DataFrame(idfc_data)
+    idfc_data_df['credit_cards_name'] = idfc_path.split('/')[-1]
     idfc_data_df.to_csv('processed_data/idfc_wow_transactions.csv', index=False)
 
 
@@ -71,14 +74,47 @@ def process_axis_bank():
     combined_df[['AMOUNT', 'TRANSACTION_TYPE']] = combined_df.apply(parse_axis_bank_transaction_line, axis=1, result_type='expand')
     formatted_df = combined_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
     formatted_df.columns = [col.lower() for col in formatted_df.columns]
+    formatted_df['credit_cards_name'] = axis_bank_path.split('/')[-1]
 
     formatted_df.to_csv('processed_data/axis_bank_transactions.csv', index=False)
     print("Combined DataFrame saved to 'axis_bank_transactions.csv'")
 
 
+def process_axis_credit_cards():
+    axis_credit_cards = ['data/axis_flipkart', 'data/axis_my_zone']
+    # axis_my_zone_path = 'data/axis_my_zone'
+
+    combined_df = pd.DataFrame()  # Initialize an empty DataFrame to store combined data
+    date_pattern = re.compile(r'^\d{2} [A-Za-z]{3} \'\d{2}$')  # Regex pattern to match 'dd mmm 'yy'
+
+    for card in axis_credit_cards:
+        for root, dirs, files in os.walk(card):
+            for filename in files:
+                if filename.endswith('.xlsx'):
+                    file_path = os.path.join(root, filename)
+                    print(f"Processing file: {file_path}")
+                    df = pd.read_excel(file_path, sheet_name='Transactions Summary')
+                    df.columns = ['DATE', 'DESCRIPTION', 'DROP', 'AMOUNT', 'TRANSACTION_TYPE']
+                    filtered_df = df[df['DATE'].apply(lambda x: bool(date_pattern.match(x)))]
+                    formatted_df = filtered_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
+                    formatted_df.columns = [col.lower() for col in formatted_df.columns]
+
+                    formatted_df['credit_cards_name'] = card.split('/')[-1]
+                    formatted_df['date'] = formatted_df['date'].apply(lambda x: datetime.strptime(x, "%d %b '%y").strftime("%d-%m-%Y"))
+                    formatted_df['amount'] = formatted_df['amount'].apply(lambda x: x.replace(',', '').replace('₹ ', ''))
+                    formatted_df['transaction_type'] = formatted_df['transaction_type'].apply(lambda x: x.upper())
+
+                    combined_df = pd.concat([combined_df, formatted_df], ignore_index=True)
+
+    combined_df.to_csv('processed_data/axis_credit_cards_transactions.csv', index=False)
+
+
 def main():
-    # process_idfc_wow()
+    print('Started')
+    process_idfc_wow()
     process_axis_bank()
+    process_axis_credit_cards()
+    print("Done")
 
 
 if __name__ == '__main__':
