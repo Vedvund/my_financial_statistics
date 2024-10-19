@@ -163,4 +163,5 @@ cython_debug/
 #.idea/
 
 data/
+processed_data/
 scratchpad/
