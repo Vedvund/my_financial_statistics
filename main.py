@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
+
 from helpers import extract_text_from_pdfs
 
 load_dotenv(find_dotenv())
@@ -109,11 +110,50 @@ def process_axis_credit_cards():
     combined_df.to_csv('processed_data/axis_credit_cards_transactions.csv', index=False)
 
 
+def parse_hdfc_bank_transaction_line(row):
+    if float(row['DEBIT']) > 0:
+        return row['DEBIT'], 'DEBIT'
+    elif float(row['CREDIT']) > 0:
+        return row['CREDIT'], 'CREDIT'
+    else:
+        raise Exception('unexpected row')
+
+
+def process_hdfc_bank():
+    hdfc_bank_path = 'data/hdfc_bank'
+    cols = ['DATE', 'DESCRIPTION', 'VALUE_DATE', 'DEBIT', 'CREDIT', 'CHQ', 'BALANCE']
+    date_pattern = re.compile(r'^\d{2}/\d{2}/\d{2}$')  # Regex pattern to match 'dd-mm-yyyy'
+
+    data = []
+    for root, dirs, files in os.walk(hdfc_bank_path):
+        for filename in files:
+            if filename.endswith('.txt'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                with open(file_path, 'r') as f:
+                    for line in f:
+                        fl = line.strip()
+                        formatted_line = [l.strip() for l in fl.split(',')]
+                        if len(formatted_line) == len(cols):
+                            data.append(formatted_line)
+
+    combined_df = pd.DataFrame(data, columns=cols)
+    combined_df = combined_df[combined_df.iloc[:, 0].apply(lambda x: bool(date_pattern.match(str(x))))]
+
+    combined_df[['AMOUNT', 'TRANSACTION_TYPE']] = combined_df.apply(parse_hdfc_bank_transaction_line, axis=1, result_type='expand')
+    formatted_df = combined_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
+    formatted_df.columns = [col.lower() for col in formatted_df.columns]
+    formatted_df['credit_cards_name'] = hdfc_bank_path.split('/')[-1]
+    formatted_df.to_csv('processed_data/hdfc_bank_transactions.csv', index=False)
+    print("Combined DataFrame saved to 'hdfc_bank_transactions.csv'")
+
+
 def main():
     print('Started')
-    process_idfc_wow()
-    process_axis_bank()
-    process_axis_credit_cards()
+    # process_idfc_wow()
+    # process_axis_bank()
+    # process_axis_credit_cards()
+    process_hdfc_bank()
     print("Done")
 
 
