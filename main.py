@@ -1,9 +1,7 @@
 import os
 import re
 import pandas as pd
-
 from dotenv import find_dotenv, load_dotenv
-
 from helpers import extract_text_from_pdfs
 
 load_dotenv(find_dotenv())
