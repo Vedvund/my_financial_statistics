@@ -148,12 +148,69 @@ def process_hdfc_bank():
     print("Combined DataFrame saved to 'hdfc_bank_transactions.csv'")
 
 
+def parse_hdfc_credit_cards_transaction_line(line):
+    print(line)
+    date_pattern = r'^\d{2}/\d{2}/\d{4}'
+    match = re.match(date_pattern, line)
+    if not match:
+        return None
+
+    line = line.replace(' HDFC BANK UPI RuPay Credit Card Statement', '')
+    line = line.replace(' Diners Club International Credit Card Statement', '')
+
+    parts = line.split()
+    if len(parts) < 4:
+        return None
+
+    date = parts[0].replace('/', '-')
+    amount = parts[-2] if parts[-1] == 'Cr' else parts[-1]
+    transaction_type = 'CREDIT' if parts[-1] == 'Cr' else 'DEBIT'
+    description = ' '.join(parts[1:-2]) if transaction_type == 'CREDIT' else ' '.join(parts[1:-1])
+
+    pattern = r'^\d{2}:\d{2}:\d{2}\s*'
+    cleaned_description = re.sub(pattern, '', description)
+
+    try:
+        return date, cleaned_description, abs(float(amount.replace(',', ''))), transaction_type
+    except Exception as e:
+        print(amount.replace(',', ''))
+        raise e
+
+
+def process_hdfc_credit_cards():
+    hdfc_credit_cards = ['data/hdfc_rupay', 'data/hdfc_diners']
+    combined_df = pd.DataFrame()
+    for card in hdfc_credit_cards:
+        hdfc_data = []
+        content = extract_text_from_pdfs(directory=card, password=None, page_number=None)
+        for file_name, lines in content.items():
+            for line in lines:
+                print(file_name)
+                parsed_line = parse_hdfc_credit_cards_transaction_line(line.strip())
+                if parsed_line:
+                    date, description, amount, transaction_type = parsed_line
+                    hdfc_data.append({
+                        "date": date,
+                        "description": description,
+                        "amount": abs(amount),
+                        "transaction_type": transaction_type
+                    })
+                    print(len(hdfc_data))
+        df = pd.DataFrame(hdfc_data)
+        df['credit_cards_name'] = card.split('/')[-1]
+        combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    combined_df.columns = [col.lower() for col in combined_df.columns]
+    combined_df.to_csv('processed_data/hdfc_credit_cards_transactions.csv', index=False)
+
+
 def main():
     print('Started')
-    # process_idfc_wow()
-    # process_axis_bank()
-    # process_axis_credit_cards()
+    process_idfc_wow()
+    process_axis_bank()
+    process_axis_credit_cards()
     process_hdfc_bank()
+    process_hdfc_credit_cards()
     print("Done")
 
 
