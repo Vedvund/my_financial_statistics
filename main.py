@@ -252,6 +252,51 @@ def process_onecard():
     df.to_csv('processed_data/onecard_transactions.csv', index=False)
 
 
+def parse_jupiter_transaction_line(line, date_str):
+    formated_line = line.replace('Rs. ', '')
+    parts = formated_line.split(' ')
+    description = (' '.join(parts[1:-1]))[2:]
+    amount = float(parts[-1].replace(',', ''))
+    for key_word in ['REFUND', 'Repayment - Thank You']:
+        if key_word in formated_line:
+            transaction_type = 'CREDIT'
+            break
+        else:
+            transaction_type = 'DEBIT'
+
+    date = datetime.strptime(date_str.strip(), "%d %b %Y").strftime("%d-%m-%Y")
+
+    return date, description, amount, transaction_type
+
+
+def process_jupiter():
+    jupiter_path = 'data/jupiter'
+    jupiter_pdf_password = os.getenv('JUPITER_PDF_PASSWORD')
+    content = extract_text_from_pdfs(directory=jupiter_path, password=jupiter_pdf_password, page_number=None)
+
+    jupiter_data = []
+    for file_name, lines in content.items():
+        for index, line in enumerate(lines):
+            time_pattern = r'^\d{2}:\d{2}'
+            match = re.match(time_pattern, line)
+            if not match:
+                continue
+
+            parsed_line = parse_jupiter_transaction_line(line, lines[index - 1])
+            if parsed_line:
+                date, description, amount, transaction_type = parsed_line
+                jupiter_data.append({
+                    "date": date,
+                    "description": description,
+                    "amount": abs(amount),
+                    "transaction_type": transaction_type
+                })
+
+    jupiter_data_df = pd.DataFrame(jupiter_data)
+    jupiter_data_df['credit_cards_name'] = jupiter_path.split('/')[1]
+    jupiter_data_df.to_csv('processed_data/jupiter_transactions.csv', index=False)
+
+
 def main():
     print('Started')
     process_idfc_wow()
@@ -261,6 +306,7 @@ def main():
     process_hdfc_credit_cards()
     process_amex()
     process_onecard()
+    process_jupiter()
     print("Done")
 
 
