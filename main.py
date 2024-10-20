@@ -142,6 +142,8 @@ def process_hdfc_bank():
 
     combined_df[['AMOUNT', 'TRANSACTION_TYPE']] = combined_df.apply(parse_hdfc_bank_transaction_line, axis=1, result_type='expand')
     formatted_df = combined_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
+    formatted_df['DATE'] = formatted_df['DATE'].apply(lambda x: x.replace('/', '-'))
+
     formatted_df.columns = [col.lower() for col in formatted_df.columns]
     formatted_df['credit_cards_name'] = hdfc_bank_path.split('/')[-1]
     formatted_df.to_csv('processed_data/hdfc_bank_transactions.csv', index=False)
@@ -204,6 +206,26 @@ def process_hdfc_credit_cards():
     combined_df.to_csv('processed_data/hdfc_credit_cards_transactions.csv', index=False)
 
 
+def process_amex():
+    amex_path = 'data/amex'
+    combined_df = pd.DataFrame()  # Initialize an empty DataFrame to store combined data
+    for root, dirs, files in os.walk(amex_path):
+        for filename in files:
+            if filename.endswith('.csv'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                df = pd.read_csv(file_path)
+                print(df.columns)
+                df = df[['Date', 'Description', 'Amount']]
+                df.columns = ['DATE', 'DESCRIPTION', 'AMOUNT']
+                df['TRANSACTION_TYPE'] = df['AMOUNT'].apply(lambda x: 'DEBIT' if x >= 0 else 'CREDIT')
+                df['DATE'] = df['DATE'].apply(lambda x: x.replace('/', '-'))
+                df['CREDIT_CARDS_NAME'] = amex_path.split('/')[-1]
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+    combined_df.columns = [col.lower() for col in combined_df.columns]
+    combined_df.to_csv('processed_data/amex_transactions.csv', index=False)
+
+
 def main():
     print('Started')
     process_idfc_wow()
@@ -211,6 +233,7 @@ def main():
     process_axis_credit_cards()
     process_hdfc_bank()
     process_hdfc_credit_cards()
+    process_amex()
     print("Done")
 
 
