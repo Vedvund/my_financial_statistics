@@ -226,6 +226,32 @@ def process_amex():
     combined_df.to_csv('processed_data/amex_transactions.csv', index=False)
 
 
+def process_onecard():
+    onecard_path = 'data/onecard/manual_processed'
+    one_card_data = []
+    for root, dirs, files in os.walk(onecard_path):
+        for filename in files:
+            if filename.endswith('.txt'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                with open(file_path, 'r') as f:
+                    for line in f:
+                        parts = line.strip().split(' ')
+                        if len(parts) > 2:
+                            amount = float(parts[-1].replace(',', ''))
+                            one_card_data.append({
+                                "DATE": datetime.strptime(parts[0], "%d-%b-%Y").strftime("%d-%m-%Y"),
+                                "DESCRIPTION": ' '.join(parts[1:-2]),
+                                "AMOUNT": abs(amount),
+                                "TRANSACTION_TYPE": 'DEBIT' if amount >= 0 else 'CREDIT'
+                            })
+
+    df = pd.DataFrame(one_card_data)
+    df['CREDIT_CARDS_NAME'] = onecard_path.split('/')[1]
+    df.columns = [col.lower() for col in df.columns]
+    df.to_csv('processed_data/onecard_transactions.csv', index=False)
+
+
 def main():
     print('Started')
     process_idfc_wow()
@@ -234,6 +260,7 @@ def main():
     process_hdfc_bank()
     process_hdfc_credit_cards()
     process_amex()
+    process_onecard()
     print("Done")
 
 
