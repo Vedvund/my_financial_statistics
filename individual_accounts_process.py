@@ -350,6 +350,7 @@ def combine_all_processed():
                 file_path = os.path.join(root, filename)
                 df = pd.read_csv(file_path)
                 combined_df = pd.concat([combined_df, df], ignore_index=True)
+    combined_df.drop_duplicates(keep='first', inplace=True)
     combined_df.to_csv('processed_data/all_accounts.csv', index=False)
 
 

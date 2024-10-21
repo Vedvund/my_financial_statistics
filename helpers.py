@@ -11,8 +11,6 @@ def extract_text_from_pdfs(directory, password, page_number):
         for filename in files:
             if filename.endswith('.pdf') or filename.endswith('.PDF'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
-
                 # Open the PDF file
                 with open(file_path, 'rb') as file:
                     # Initialize the PDF reader
@@ -50,7 +48,5 @@ def extract_text_from_pdfs(directory, password, page_number):
                                     content[file_path] += text.splitlines()
                     else:
                         print(f"Page number {page_number} is out of range for this document.")
-
-    print(content.keys())
 
     return content
