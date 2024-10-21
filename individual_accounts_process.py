@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 
 import pandas as pd
-import xlrd
 from dotenv import find_dotenv, load_dotenv
 
 from helpers import extract_text_from_pdfs
