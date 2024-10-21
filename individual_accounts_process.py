@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 
 import pandas as pd
+import xlrd
 from dotenv import find_dotenv, load_dotenv
 
 from helpers import extract_text_from_pdfs
@@ -143,6 +144,7 @@ def process_hdfc_bank():
     combined_df[['AMOUNT', 'TRANSACTION_TYPE']] = combined_df.apply(parse_hdfc_bank_transaction_line, axis=1, result_type='expand')
     formatted_df = combined_df[['DATE', 'DESCRIPTION', 'AMOUNT', 'TRANSACTION_TYPE']].copy()
     formatted_df['DATE'] = formatted_df['DATE'].apply(lambda x: x.replace('/', '-'))
+    formatted_df['DATE'] = formatted_df['DATE'].apply(lambda x: datetime.strptime(x, "%d-%m-%y").strftime("%d-%m-%Y"))
 
     formatted_df.columns = [col.lower() for col in formatted_df.columns]
     formatted_df['credit_cards_name'] = hdfc_bank_path.split('/')[-1]
@@ -221,6 +223,7 @@ def process_amex():
                 df['TRANSACTION_TYPE'] = df['AMOUNT'].apply(lambda x: 'DEBIT' if x >= 0 else 'CREDIT')
                 df['DATE'] = df['DATE'].apply(lambda x: x.replace('/', '-'))
                 df['CREDIT_CARDS_NAME'] = amex_path.split('/')[-1]
+                df['AMOUNT'] = df['AMOUNT'].apply(lambda x: abs(x))
                 combined_df = pd.concat([combined_df, df], ignore_index=True)
     combined_df.columns = [col.lower() for col in combined_df.columns]
     combined_df.to_csv('processed_data/amex_transactions.csv', index=False)
@@ -297,6 +300,75 @@ def process_jupiter():
     jupiter_data_df.to_csv('processed_data/jupiter_transactions.csv', index=False)
 
 
+def process_icici_amazon():
+    icici_amazon_path = 'data/icici_amazon'
+    date_pattern = r'^\d{2}/\d{2}/\d{4}'
+    data = []
+    for root, dirs, files in os.walk(icici_amazon_path):
+        for filename in files:
+            if filename.endswith('.csv'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                with open(file_path, 'r') as f:
+                    for line in f:
+                        fl = line.replace('"', '')
+
+                        fl = fl.strip()
+                        match = re.match(date_pattern, fl)
+                        if not match:
+                            continue
+                        parts = fl.split(',')
+                        data.append({
+                            "date": parts[0].replace('/', '-'),
+                            "sr_no": parts[1],
+                            "description": parts[2],
+                            "reward_point": parts[3],
+                            "intl_amount": parts[4],
+                            "amount": parts[5],
+                            "transaction_type": 'CREDIT' if parts[6] == 'CR' else 'DEBIT'
+                        })
+
+    df = pd.DataFrame(data)
+    df['credit_cards_name'] = icici_amazon_path.split('/')[1]
+    df = df[['date', 'description', 'amount', 'transaction_type', 'credit_cards_name']]
+    df.to_csv('processed_data/icici_amazon.csv', index=False)
+
+
+def process_sbi_bank():
+    sbi_bank_path = 'data/sbi_bank/manual_processed'
+    combined_df = pd.DataFrame()  # Initialize an empty DataFrame to store combined data
+    for root, dirs, files in os.walk(sbi_bank_path):
+        for filename in files:
+            if filename.endswith('.txt'):
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                df = pd.read_csv(file_path, sep='\t')
+                df.columns = ['date', 'value_date', 'description', 'ref_no_cheque_no', 'debit', 'credit', 'balance']
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+
+    combined_df['debit'] = combined_df['debit'].apply(lambda x: float(x.replace(',', '')) if x != ' ' else None)
+    combined_df['credit'] = combined_df['credit'].apply(lambda x: float(x.replace(',', '')) if x != ' ' else None)
+    combined_df['amount'] = combined_df['debit'].fillna(combined_df['credit'])
+    combined_df['transaction_type'] = combined_df['debit'].apply(lambda x: 'CREDIT' if pd.isna(x) else 'DEBIT')
+    combined_df['date'] = combined_df['date'].apply(lambda x: datetime.strptime(x, "%d %b %Y").strftime("%d-%m-%Y"))
+    combined_df['credit_cards_name'] = sbi_bank_path.split('/')[1]
+    new_df = combined_df[['date', 'description', 'amount', 'transaction_type', 'credit_cards_name']]
+
+    new_df.to_csv('processed_data/sbi_bank.csv', index=False)
+
+
+def combine_all_processed():
+    combined_df = pd.DataFrame()
+    for root, dirs, files in os.walk('processed_data'):
+        for filename in files:
+            if filename.endswith('.csv') and 'all_accounts' not in filename:
+                file_path = os.path.join(root, filename)
+                print(f"Processing file: {file_path}")
+                df = pd.read_csv(file_path)
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+    combined_df.to_csv('processed_data/all_accounts.csv', index=False)
+
+
 def main():
     print('Started')
     process_idfc_wow()
@@ -307,6 +379,9 @@ def main():
     process_amex()
     process_onecard()
     process_jupiter()
+    process_icici_amazon()
+    process_sbi_bank()
+    combine_all_processed()
     print("Done")
 
 
