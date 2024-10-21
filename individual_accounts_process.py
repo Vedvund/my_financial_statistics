@@ -65,7 +65,6 @@ def process_axis_bank():
         for filename in files:
             if filename.endswith('.csv'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 df = pd.read_csv(file_path, skiprows=18, header=0, na_values=['', ' '])
                 df = df.dropna(thresh=df.shape[1] - 4)
                 df = df[df.iloc[:, 0].apply(lambda x: bool(date_pattern.match(str(x))))]
@@ -78,7 +77,6 @@ def process_axis_bank():
     formatted_df['credit_cards_name'] = axis_bank_path.split('/')[-1]
 
     formatted_df.to_csv('processed_data/axis_bank_transactions.csv', index=False)
-    print("Combined DataFrame saved to 'axis_bank_transactions.csv'")
 
 
 def process_axis_credit_cards():
@@ -93,7 +91,6 @@ def process_axis_credit_cards():
             for filename in files:
                 if filename.endswith('.xlsx'):
                     file_path = os.path.join(root, filename)
-                    print(f"Processing file: {file_path}")
                     df = pd.read_excel(file_path, sheet_name='Transactions Summary')
                     df.columns = ['DATE', 'DESCRIPTION', 'DROP', 'AMOUNT', 'TRANSACTION_TYPE']
                     filtered_df = df[df['DATE'].apply(lambda x: bool(date_pattern.match(x)))]
@@ -129,7 +126,6 @@ def process_hdfc_bank():
         for filename in files:
             if filename.endswith('.txt'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 with open(file_path, 'r') as f:
                     for line in f:
                         fl = line.strip()
@@ -148,11 +144,9 @@ def process_hdfc_bank():
     formatted_df.columns = [col.lower() for col in formatted_df.columns]
     formatted_df['credit_cards_name'] = hdfc_bank_path.split('/')[-1]
     formatted_df.to_csv('processed_data/hdfc_bank_transactions.csv', index=False)
-    print("Combined DataFrame saved to 'hdfc_bank_transactions.csv'")
 
 
 def parse_hdfc_credit_cards_transaction_line(line):
-    print(line)
     date_pattern = r'^\d{2}/\d{2}/\d{4}'
     match = re.match(date_pattern, line)
     if not match:
@@ -176,7 +170,6 @@ def parse_hdfc_credit_cards_transaction_line(line):
     try:
         return date, cleaned_description, abs(float(amount.replace(',', ''))), transaction_type
     except Exception as e:
-        print(amount.replace(',', ''))
         raise e
 
 
@@ -188,7 +181,6 @@ def process_hdfc_credit_cards():
         content = extract_text_from_pdfs(directory=card, password=None, page_number=None)
         for file_name, lines in content.items():
             for line in lines:
-                print(file_name)
                 parsed_line = parse_hdfc_credit_cards_transaction_line(line.strip())
                 if parsed_line:
                     date, description, amount, transaction_type = parsed_line
@@ -198,7 +190,6 @@ def process_hdfc_credit_cards():
                         "amount": abs(amount),
                         "transaction_type": transaction_type
                     })
-                    print(len(hdfc_data))
         df = pd.DataFrame(hdfc_data)
         df['credit_cards_name'] = card.split('/')[-1]
         combined_df = pd.concat([combined_df, df], ignore_index=True)
@@ -214,9 +205,7 @@ def process_amex():
         for filename in files:
             if filename.endswith('.csv'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 df = pd.read_csv(file_path)
-                print(df.columns)
                 df = df[['Date', 'Description', 'Amount']]
                 df.columns = ['DATE', 'DESCRIPTION', 'AMOUNT']
                 df['TRANSACTION_TYPE'] = df['AMOUNT'].apply(lambda x: 'DEBIT' if x >= 0 else 'CREDIT')
@@ -235,7 +224,6 @@ def process_onecard():
         for filename in files:
             if filename.endswith('.txt'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 with open(file_path, 'r') as f:
                     for line in f:
                         parts = line.strip().split(' ')
@@ -307,7 +295,6 @@ def process_icici_amazon():
         for filename in files:
             if filename.endswith('.csv'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 with open(file_path, 'r') as f:
                     for line in f:
                         fl = line.replace('"', '')
@@ -340,7 +327,6 @@ def process_sbi_bank():
         for filename in files:
             if filename.endswith('.txt'):
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 df = pd.read_csv(file_path, sep='\t')
                 df.columns = ['date', 'value_date', 'description', 'ref_no_cheque_no', 'debit', 'credit', 'balance']
                 combined_df = pd.concat([combined_df, df], ignore_index=True)
@@ -362,14 +348,12 @@ def combine_all_processed():
         for filename in files:
             if filename.endswith('.csv') and 'all_accounts' not in filename:
                 file_path = os.path.join(root, filename)
-                print(f"Processing file: {file_path}")
                 df = pd.read_csv(file_path)
                 combined_df = pd.concat([combined_df, df], ignore_index=True)
     combined_df.to_csv('processed_data/all_accounts.csv', index=False)
 
 
 def main():
-    print('Started')
     process_idfc_wow()
     process_axis_bank()
     process_axis_credit_cards()
@@ -381,7 +365,6 @@ def main():
     process_icici_amazon()
     process_sbi_bank()
     combine_all_processed()
-    print("Done")
 
 
 if __name__ == '__main__':
